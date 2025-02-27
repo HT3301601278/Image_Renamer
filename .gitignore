@@ -1,0 +1,16 @@
+# Python build directories
+build/
+dist/
+
+# PyInstaller spec files
+*.spec
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
+ENV/ 
