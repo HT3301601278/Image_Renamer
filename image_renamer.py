@@ -10,7 +10,12 @@ pytesseract.pytesseract.tesseract_cmd = r'D:\Tesseract-OCR\tesseract.exe'
 class ImageRenamer:
     def __init__(self, root):
         self.root = root
+        # 添加 DPI 感知
+        self.root.tk.call('tk', 'scaling', 2.0)  # 可以根据实际情况调整缩放比例
         self.root.title("图片重命名工具")
+        
+        # 设置最小窗口大小
+        self.root.minsize(1024, 768)
         
         # 初始化变量
         self.images = []
@@ -28,16 +33,30 @@ class ImageRenamer:
         self.canvas.bind("<B1-Motion>", self.update_selection)
         self.canvas.bind("<ButtonRelease-1>", self.end_selection)
         
-        # 创建按钮
-        self.select_button = tk.Button(root, text="选择图片", command=self.select_images)
-        self.select_button.pack(side="left", padx=5, pady=5)
+        # 设置按钮样式
+        button_style = {
+            'font': ('微软雅黑', 12),
+            'padx': 20,
+            'pady': 10,
+            'relief': 'raised',
+            'borderwidth': 2
+        }
         
-        self.rename_button = tk.Button(root, text="重命名图片", command=self.rename_images)
-        self.rename_button.pack(side="left", padx=5, pady=5)
+        self.select_button = tk.Button(root, text="选择图片", command=self.select_images, **button_style)
+        self.select_button.pack(side="left", padx=10, pady=10)
         
-        # 添加状态标签
-        self.status_label = tk.Label(root, text="", wraplength=400)
-        self.status_label.pack(side="bottom", pady=5)
+        self.rename_button = tk.Button(root, text="重命名图片", command=self.rename_images, **button_style)
+        self.rename_button.pack(side="left", padx=10, pady=10)
+        
+        # 设置状态标签样式
+        self.status_label = tk.Label(
+            root,
+            text="",
+            wraplength=800,  # 增加文本换行宽度
+            font=('微软雅黑', 11),
+            pady=10
+        )
+        self.status_label.pack(side="bottom", pady=10)
         
     def update_status(self, message):
         """更新状态信息"""
@@ -58,10 +77,21 @@ class ImageRenamer:
     def show_image(self, image_path):
         # 显示图片在画布上
         image = Image.open(image_path)
-        # 调整图片大小以适应窗口
-        display_size = (800, 600)  # 可以根据需要调整
+        
+        # 获取屏幕尺寸
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        # 计算合适的显示尺寸，使用屏幕尺寸的一定比例
+        display_width = int(screen_width * 0.7)
+        display_height = int(screen_height * 0.7)
+        display_size = (display_width, display_height)
+        
+        # 保持纵横比进行缩放
         image.thumbnail(display_size, Image.Resampling.LANCZOS)
         self.current_image = ImageTk.PhotoImage(image)
+        
+        # 调整画布大小
         self.canvas.config(width=image.width, height=image.height)
         self.canvas.create_image(0, 0, anchor="nw", image=self.current_image)
         
