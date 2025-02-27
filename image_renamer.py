@@ -1,11 +1,10 @@
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from PIL import Image, ImageTk
+
 import pytesseract
-import os
+from PIL import Image, ImageTk
 
-
-pytesseract.pytesseract.tesseract_cmd = r'D:\Tesseract-OCR\tesseract.exe'
 
 class ImageRenamer:
     def __init__(self, root):
@@ -24,14 +23,22 @@ class ImageRenamer:
         self.start_x = None
         self.start_y = None
         
+        # 添加新的状态变量
+        self.dragging = False
+        self.resizing = False
+        self.resize_edge = None
+        self.last_x = 0
+        self.last_y = 0
+        
         # 创建画布
         self.canvas = tk.Canvas(root)
         self.canvas.pack(fill="both", expand=True)
         
-        # 绑定鼠标事件
-        self.canvas.bind("<ButtonPress-1>", self.start_selection)
-        self.canvas.bind("<B1-Motion>", self.update_selection)
-        self.canvas.bind("<ButtonRelease-1>", self.end_selection)
+        # 修改画布绑定事件
+        self.canvas.bind("<ButtonPress-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        self.canvas.bind("<Motion>", self.on_motion)
         
         # 设置按钮样式
         button_style = {
@@ -95,6 +102,133 @@ class ImageRenamer:
         self.canvas.config(width=image.width, height=image.height)
         self.canvas.create_image(0, 0, anchor="nw", image=self.current_image)
         
+    def on_press(self, event):
+        """处理鼠标按下事件"""
+        self.last_x = event.x
+        self.last_y = event.y
+        
+        if hasattr(self, 'selection_rect'):
+            # 检查是否点击了调整大小的边缘
+            edge = self.get_resize_edge(event.x, event.y)
+            if edge:
+                self.resizing = True
+                self.resize_edge = edge
+                return
+                
+            # 检查是否在选择框内
+            coords = self.canvas.coords(self.selection_rect)
+            if (coords[0] <= event.x <= coords[2] and 
+                coords[1] <= event.y <= coords[3]):
+                self.dragging = True
+                return
+        
+        # 如果既不是调整大小也不是拖动，就开始新的选择
+        self.start_selection(event)
+    
+    def on_drag(self, event):
+        """处理鼠标拖动事件"""
+        if self.dragging:
+            # 计算移动距离
+            dx = event.x - self.last_x
+            dy = event.y - self.last_y
+            
+            # 更新选择框位置
+            coords = self.canvas.coords(self.selection_rect)
+            new_coords = [
+                coords[0] + dx, coords[1] + dy,
+                coords[2] + dx, coords[3] + dy
+            ]
+            self.canvas.coords(self.selection_rect, *new_coords)
+            self.selection_coords = tuple(map(int, new_coords))
+            
+        elif self.resizing:
+            # 处理调整大小
+            coords = list(self.canvas.coords(self.selection_rect))
+            if 'e' in self.resize_edge:  # 东边
+                coords[2] = event.x
+            if 'w' in self.resize_edge:  # 西边
+                coords[0] = event.x
+            if 's' in self.resize_edge:  # 南边
+                coords[3] = event.y
+            if 'n' in self.resize_edge:  # 北边
+                coords[1] = event.y
+                
+            # 确保选择框不会反转
+            if coords[2] < coords[0]:
+                coords[0], coords[2] = coords[2], coords[0]
+            if coords[3] < coords[1]:
+                coords[1], coords[3] = coords[3], coords[1]
+                
+            self.canvas.coords(self.selection_rect, *coords)
+            self.selection_coords = tuple(map(int, coords))
+            
+        else:
+            # 正常的框选更新
+            self.update_selection(event)
+            
+        self.last_x = event.x
+        self.last_y = event.y
+        self.update_status(f"已选择区域: {self.selection_coords}")
+    
+    def on_release(self, event):
+        """处理鼠标释放事件"""
+        if self.dragging or self.resizing:
+            # 更新最终坐标
+            coords = self.canvas.coords(self.selection_rect)
+            self.selection_coords = tuple(map(int, coords))
+        else:
+            # 正常的框选结束
+            self.end_selection(event)
+            
+        self.dragging = False
+        self.resizing = False
+        self.resize_edge = None
+    
+    def get_resize_edge(self, x, y, threshold=8):
+        """检测鼠标是否在选择框边缘"""
+        if not hasattr(self, 'selection_rect'):
+            return None
+            
+        coords = self.canvas.coords(self.selection_rect)
+        edges = []
+        
+        # 检查是否在水平边缘
+        if abs(y - coords[1]) < threshold:  # 北边
+            edges.append('n')
+        elif abs(y - coords[3]) < threshold:  # 南边
+            edges.append('s')
+            
+        # 检查是否在垂直边缘
+        if abs(x - coords[0]) < threshold:  # 西边
+            edges.append('w')
+        elif abs(x - coords[2]) < threshold:  # 东边
+            edges.append('e')
+            
+        return ''.join(edges) if edges else None
+    
+    def on_motion(self, event):
+        """处理鼠标移动事件，更新鼠标样式"""
+        if not hasattr(self, 'selection_rect'):
+            return
+            
+        edge = self.get_resize_edge(event.x, event.y)
+        if edge:
+            if edge in ('n', 's'):
+                self.canvas.config(cursor='sb_v_double_arrow')
+            elif edge in ('e', 'w'):
+                self.canvas.config(cursor='sb_h_double_arrow')
+            elif edge in ('nw', 'se'):
+                self.canvas.config(cursor='size_nw_se')
+            elif edge in ('ne', 'sw'):
+                self.canvas.config(cursor='size_ne_sw')
+        else:
+            coords = self.canvas.coords(self.selection_rect)
+            if (coords[0] <= event.x <= coords[2] and 
+                coords[1] <= event.y <= coords[3]):
+                self.canvas.config(cursor='fleur')  # 移动光标
+            else:
+                self.canvas.config(cursor='')  # 默认光标
+    
     def start_selection(self, event):
         # 开始框选
         self.start_x = event.x
