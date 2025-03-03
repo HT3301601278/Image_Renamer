@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 import pytesseract
 from PIL import Image, ImageTk
@@ -14,7 +14,7 @@ class ImageRenamer:
         self.root.title("图片重命名工具")
         
         # 设置最小窗口大小
-        self.root.minsize(1024, 768)
+        self.root.minsize(1200, 800)
         
         # 初始化变量
         self.images = []
@@ -30,8 +30,48 @@ class ImageRenamer:
         self.last_x = 0
         self.last_y = 0
         
+        # 创建主框架
+        self.main_frame = ttk.Frame(root)
+        self.main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # 创建顶部工具栏
+        self.toolbar = ttk.Frame(self.main_frame)
+        self.toolbar.pack(fill="x", pady=(0, 10))
+        
+        # 创建自定义样式
+        style = ttk.Style()
+        style.configure('Accent.TButton', 
+                       font=('微软雅黑', 11),
+                       padding=(15, 8))
+        
+        # 创建按钮
+        self.select_button = ttk.Button(
+            self.toolbar, 
+            text="选择图片", 
+            command=self.select_images,
+            style='Accent.TButton'
+        )
+        self.select_button.pack(side="left", padx=5)
+        
+        self.rename_button = ttk.Button(
+            self.toolbar, 
+            text="重命名图片", 
+            command=self.rename_images,
+            style='Accent.TButton'
+        )
+        self.rename_button.pack(side="left", padx=5)
+        
+        # 创建图片显示区域框架
+        self.image_frame = ttk.Frame(self.main_frame)
+        self.image_frame.pack(fill="both", expand=True)
+        
         # 创建画布
-        self.canvas = tk.Canvas(root)
+        self.canvas = tk.Canvas(
+            self.image_frame,
+            bg='#f0f0f0',
+            highlightthickness=1,
+            highlightbackground='#cccccc'
+        )
         self.canvas.pack(fill="both", expand=True)
         
         # 修改画布绑定事件
@@ -40,30 +80,36 @@ class ImageRenamer:
         self.canvas.bind("<ButtonRelease-1>", self.on_release)
         self.canvas.bind("<Motion>", self.on_motion)
         
-        # 设置按钮样式
-        button_style = {
-            'font': ('微软雅黑', 12),
-            'padx': 20,
-            'pady': 10,
-            'relief': 'raised',
-            'borderwidth': 2
-        }
-        
-        self.select_button = tk.Button(root, text="选择图片", command=self.select_images, **button_style)
-        self.select_button.pack(side="left", padx=10, pady=10)
-        
-        self.rename_button = tk.Button(root, text="重命名图片", command=self.rename_images, **button_style)
-        self.rename_button.pack(side="left", padx=10, pady=10)
+        # 创建底部状态栏
+        self.status_frame = ttk.Frame(self.main_frame)
+        self.status_frame.pack(fill="x", pady=(10, 0))
         
         # 设置状态标签样式
-        self.status_label = tk.Label(
-            root,
+        style.configure('Status.TLabel',
+                       font=('微软雅黑', 10),
+                       padding=(5, 5))
+        
+        self.status_label = ttk.Label(
+            self.status_frame,
             text="",
-            wraplength=800,  # 增加文本换行宽度
-            font=('微软雅黑', 11),
-            pady=10
+            wraplength=1000,
+            style='Status.TLabel'
         )
-        self.status_label.pack(side="bottom", pady=10)
+        self.status_label.pack(fill="x")
+        
+        # 设置提示标签样式
+        style.configure('Tip.TLabel',
+                       font=('微软雅黑', 9),
+                       foreground='#666666',
+                       padding=(5, 5))
+        
+        # 添加提示信息
+        self.tip_label = ttk.Label(
+            self.status_frame,
+            text="提示：在图片上拖动鼠标选择要识别的文字区域",
+            style='Tip.TLabel'
+        )
+        self.tip_label.pack(fill="x")
         
     def update_status(self, message):
         """更新状态信息"""
